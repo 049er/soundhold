@@ -16,7 +16,11 @@ jobs:
       - name: Install build tools
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends build-essential cargo rustc pkg-config clang libclang-dev libpipewire-0.3-dev libgtk-4-dev libadwaita-1-dev dpkg-dev gh git ca-certificates
+          apt-get install -y --no-install-recommends build-essential curl pkg-config clang libclang-dev libpipewire-0.3-dev libgtk-4-dev libadwaita-1-dev dpkg-dev gh git ca-certificates
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.99.1
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
       - uses: actions/checkout@v4
       - name: Test
         run: cargo test --workspace
