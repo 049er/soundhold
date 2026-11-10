@@ -1,0 +1,3 @@
+[workspace]
+members = ["crates/soundhold", "crates/soundhold-window"]
+resolver = "2"

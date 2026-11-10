@@ -1,0 +1,311 @@
+window.m3 {
+  background-color: @m3_surface;
+  color: @m3_on_surface;
+  border-radius: 12px;
+}
+
+.m3-titlebar {
+  min-height: 48px;
+  padding: 0 8px 0 16px;
+  background-color: @m3_surface;
+}
+
+.m3-title-bar-text {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+  color: @m3_on_surface;
+}
+
+.m3-icon-button {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  margin-left: 4px;
+  border: none;
+  border-radius: 16px;
+  background: none;
+  box-shadow: none;
+  color: @m3_on_surface_variant;
+}
+
+.m3-icon-button:hover {
+  background-color: alpha(@m3_on_surface_variant, 0.08);
+}
+
+.m3-icon-button:active {
+  background-color: alpha(@m3_on_surface_variant, 0.10);
+}
+
+.m3-content {
+  padding: 8px 16px 16px 16px;
+}
+
+.m3-card {
+  padding: 16px;
+  border-radius: 12px;
+  background-color: @m3_surface_container;
+}
+
+.m3-title-medium {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+  color: @m3_on_surface;
+}
+
+.m3-body-medium {
+  font-size: 14px;
+  line-height: 20px;
+  color: @m3_on_surface_variant;
+}
+
+.m3-body-large {
+  font-size: 16px;
+  line-height: 24px;
+  color: @m3_on_surface;
+}
+
+.m3-body-small {
+  font-size: 12px;
+  line-height: 16px;
+  color: @m3_on_surface_variant;
+}
+
+.m3-tabular {
+  font-feature-settings: "tnum";
+}
+
+scale.m3-slider {
+  padding: 10px 0;
+}
+
+scale.m3-slider trough {
+  min-height: 4px;
+  border-radius: 2px;
+  background-color: @m3_surface_container_highest;
+  background-image: none;
+  border: none;
+}
+
+scale.m3-slider highlight {
+  min-height: 4px;
+  border-radius: 2px;
+  background-color: @m3_primary;
+  background-image: none;
+  border: none;
+}
+
+scale.m3-slider slider {
+  min-width: 20px;
+  min-height: 20px;
+  margin: -8px;
+  border-radius: 10px;
+  border: none;
+  background-color: @m3_primary;
+  background-image: none;
+  box-shadow: none;
+}
+
+scale.m3-slider:disabled {
+  opacity: 0.38;
+}
+
+.m3-advanced {
+  padding: 4px 16px 16px 16px;
+}
+
+.m3-expansion {
+  border-radius: 12px;
+  background-color: @m3_surface_container;
+}
+
+.m3-expansion-header {
+  min-height: 56px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 12px;
+  background: none;
+  box-shadow: none;
+  font-weight: 400;
+  color: @m3_on_surface_variant;
+}
+
+.m3-expansion-header:hover {
+  background-color: alpha(@m3_on_surface, 0.08);
+}
+
+.m3-expansion-header:active {
+  background-color: alpha(@m3_on_surface, 0.10);
+}
+
+.m3-divider {
+  min-height: 1px;
+  background-color: @m3_outline_variant;
+}
+
+.m3-outlined-button.m3-compact-button {
+  padding: 0 8px;
+}
+
+.m3-tonal-button {
+  min-height: 48px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 12px;
+  background-color: @m3_secondary_container;
+  background-image: none;
+  box-shadow: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: @m3_on_secondary_container;
+}
+
+.m3-tonal-button:hover {
+  background-image: linear-gradient(alpha(@m3_on_secondary_container, 0.08), alpha(@m3_on_secondary_container, 0.08));
+}
+
+.m3-tonal-button:active {
+  background-image: linear-gradient(alpha(@m3_on_secondary_container, 0.10), alpha(@m3_on_secondary_container, 0.10));
+}
+
+.m3-tonal-button:disabled {
+  background-color: alpha(@m3_on_surface, 0.10);
+  color: alpha(@m3_on_surface, 0.38);
+}
+
+.m3-error {
+  font-size: 14px;
+  line-height: 20px;
+  color: @m3_error;
+}
+
+.m3-filled-button,
+.m3-outlined-button {
+  min-height: 40px;
+  padding: 0 24px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: none;
+}
+
+.m3-filled-button {
+  border: none;
+  background-color: @m3_primary;
+  color: @m3_on_primary;
+}
+
+.m3-filled-button:hover {
+  background-image: linear-gradient(alpha(@m3_on_primary, 0.08), alpha(@m3_on_primary, 0.08));
+}
+
+.m3-filled-button:active {
+  background-image: linear-gradient(alpha(@m3_on_primary, 0.10), alpha(@m3_on_primary, 0.10));
+}
+
+.m3-filled-button:disabled {
+  background-color: alpha(@m3_on_surface, 0.10);
+  color: alpha(@m3_on_surface, 0.38);
+}
+
+.m3-outlined-button {
+  border: 1px solid @m3_outline_variant;
+  background: none;
+  color: @m3_on_surface_variant;
+}
+
+.m3-outlined-button:hover {
+  background-color: alpha(@m3_on_surface_variant, 0.08);
+}
+
+.m3-outlined-button:active {
+  background-color: alpha(@m3_on_surface_variant, 0.10);
+}
+
+switch.m3-switch {
+  min-width: 48px;
+  min-height: 28px;
+  border: 2px solid @m3_outline;
+  border-radius: 16px;
+  background-color: @m3_surface_container_highest;
+  background-image: none;
+  box-shadow: none;
+}
+
+switch.m3-switch image {
+  opacity: 0;
+}
+
+switch.m3-switch slider {
+  min-width: 16px;
+  min-height: 16px;
+  margin: 6px 2px 6px 6px;
+  border-radius: 12px;
+  background-color: @m3_outline;
+  background-image: none;
+  border: none;
+  box-shadow: none;
+}
+
+switch.m3-switch:checked {
+  border-color: @m3_primary;
+  background-color: @m3_primary;
+}
+
+switch.m3-switch:checked slider {
+  min-width: 24px;
+  min-height: 24px;
+  margin: 2px 0;
+  background-color: @m3_on_primary;
+}
+
+switch.m3-switch:disabled {
+  opacity: 0.38;
+}
+
+dropdown.m3-dropdown > button {
+  min-height: 40px;
+  min-width: 120px;
+  padding: 0 12px;
+  border: 1px solid @m3_outline;
+  border-radius: 4px;
+  background: none;
+  box-shadow: none;
+  font-weight: 400;
+  color: @m3_on_surface;
+}
+
+dropdown.m3-dropdown > button:hover {
+  border-color: @m3_on_surface;
+}
+
+dropdown.m3-dropdown:disabled {
+  opacity: 0.38;
+}
+
+dropdown.m3-dropdown popover > contents {
+  padding: 8px 0;
+  border-radius: 4px;
+  background-color: @m3_surface_container;
+  color: @m3_on_surface;
+}
+
+dropdown.m3-dropdown popover listview {
+  background: none;
+}
+
+dropdown.m3-dropdown popover listview row {
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 0;
+}
+
+dropdown.m3-dropdown popover listview row:hover {
+  background-color: alpha(@m3_on_surface, 0.08);
+}
+
+dropdown.m3-dropdown popover listview row:selected {
+  background-color: @m3_secondary_container;
+  color: @m3_on_secondary_container;
+}

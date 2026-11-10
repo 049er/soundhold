@@ -1,0 +1,10 @@
+[package]
+name = "soundhold-window"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+
+[dependencies]
+adw = { package = "libadwaita", version = "0.9", features = ["v1_6"] }
+gtk = { package = "gtk4", version = "0.11", features = ["v4_12"] }
+material-colors = "0.5"
