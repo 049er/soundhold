@@ -11,7 +11,7 @@ const HDF5_SIGNATURE: &[u8; 8] = b"\x89HDF\r\n\x1a\n";
 
 fn shipped_folder() -> PathBuf {
     let installed = PathBuf::from(INSTALLED_FOLDER);
-    if installed.join(DEFAULT).exists() {
+    if !cfg!(debug_assertions) || installed.join(DEFAULT).exists() {
         installed
     } else {
         PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../sofa"))

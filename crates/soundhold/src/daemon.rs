@@ -181,7 +181,7 @@ impl ksni::Tray for Tray {
     }
 
     fn icon_theme_path(&self) -> String {
-        if Path::new(INSTALLED_TRAY_ICON).exists() {
+        if !cfg!(debug_assertions) || Path::new(INSTALLED_TRAY_ICON).exists() {
             String::new()
         } else {
             DEVELOPMENT_ICON_FOLDER.into()

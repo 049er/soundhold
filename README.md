@@ -21,6 +21,8 @@ cargo build
 
 `libgtk-4-dev` and `libadwaita-1-dev` are only needed for the window. Without them, build with `cargo build -p soundhold`.
 
+To build `.deb` packages in `target/deb`, install `dpkg-dev` and run `sh packaging/build-deb.sh`.
+
 ## Access to the head tracker
 
 Install the access rule once:

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Soundhold
+Comment=Keep sound in place as you turn your head
+Exec=soundhold-window
+Icon=soundhold
+Terminal=false
+Categories=AudioVideo;Audio;
+Keywords=spatial;head tracking;headphones;
