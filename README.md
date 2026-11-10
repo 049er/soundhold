@@ -23,6 +23,8 @@ cargo build
 
 To build `.deb` packages in `target/deb`, install `dpkg-dev` and run `sh packaging/build-deb.sh`.
 
+Pushing a `v*` tag builds the packages and creates a GitHub release.
+
 ## Access to the head tracker
 
 Install the access rule once:
