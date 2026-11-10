@@ -20,6 +20,8 @@ const SEARCH_INTERVAL: Duration = Duration::from_secs(3);
 const SAVE_INTERVAL: Duration = Duration::from_secs(1);
 const MISSES_BEFORE_GONE: u32 = 2;
 const WINDOW_PROGRAM: &str = "soundhold-window";
+const INSTALLED_TRAY_ICON: &str = "/usr/share/icons/hicolor/symbolic/apps/soundhold-symbolic.svg";
+const DEVELOPMENT_ICON_FOLDER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../data/icons/hicolor/symbolic/apps");
 
 enum Command {
     SetSpatial(bool),
@@ -175,7 +177,15 @@ impl ksni::Tray for Tray {
     }
 
     fn icon_name(&self) -> String {
-        "audio-headphones-symbolic".into()
+        "soundhold-symbolic".into()
+    }
+
+    fn icon_theme_path(&self) -> String {
+        if Path::new(INSTALLED_TRAY_ICON).exists() {
+            String::new()
+        } else {
+            DEVELOPMENT_ICON_FOLDER.into()
+        }
     }
 
     fn title(&self) -> String {
