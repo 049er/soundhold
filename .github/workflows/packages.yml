@@ -16,7 +16,7 @@ jobs:
       - name: Install build tools
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends build-essential curl pkg-config clang libclang-dev libpipewire-0.3-dev libgtk-4-dev libadwaita-1-dev dpkg-dev gh git ca-certificates
+          apt-get install -y --no-install-recommends build-essential curl pkg-config clang libclang-dev libpipewire-0.3-dev libgtk-4-dev libadwaita-1-dev dpkg-dev git ca-certificates
       - name: Install Rust
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.99.1
@@ -30,8 +30,37 @@ jobs:
         with:
           name: deb
           path: target/deb/*.deb
+
+  rpm:
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - name: Install build tools
+        run: dnf install -y curl gcc clang-devel pkgconf-pkg-config pipewire-devel gtk4-devel libadwaita-devel rpm-build git tar gzip
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.99.1
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - uses: actions/checkout@v4
+      - name: Build packages
+        run: sh packaging/build-rpm.sh
+      - name: Check that the packages install
+        run: dnf install -y target/rpm/RPMS/*/*.rpm
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rpm
+          path: target/rpm/RPMS/*/*.rpm
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [deb, rpm]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: packages
+          merge-multiple: true
       - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" target/deb/*.deb --repo "$GITHUB_REPOSITORY" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" packages/* --repo "$GITHUB_REPOSITORY" --generate-notes

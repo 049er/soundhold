@@ -23,6 +23,8 @@ cargo build
 
 To build `.deb` packages in `target/deb`, install `dpkg-dev` and run `sh packaging/build-deb.sh`.
 
+To build `.rpm` packages in `target/rpm/RPMS`, install `rpm-build` and run `sh packaging/build-rpm.sh`.
+
 Pushing a `v*` tag builds the packages and creates a GitHub release.
 
 ## Access to the head tracker
