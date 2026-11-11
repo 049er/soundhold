@@ -346,7 +346,7 @@ pub fn run() -> Result<()> {
         .serve_at(OBJECT_PATH, Service(controls.clone()))?
         .build()
         .context("could not start, is the background program already running?")?;
-    let tray = match (Tray { controls, state: "waiting".into(), spatial: true }).spawn() {
+    let tray = match (Tray { controls, state: "waiting".into(), spatial: true }).assume_sni_available(true).spawn() {
         Ok(handle) => Some(handle),
         Err(error) => {
             eprintln!("no tray icon: {error}");
