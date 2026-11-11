@@ -29,13 +29,24 @@ Pushing a `v*` tag builds the packages and creates a GitHub release.
 
 ## Access to the head tracker
 
-Install the access rule once:
+Linux gives only root access to the raw device files in `/dev/hidraw*` that carry the head tracker data. The packages install an access rule for it. When building from source, install the rule once:
 
 ```
 sudo sh install-rule.sh
 ```
 
-The rule covers Bluetooth head tracker devices only.
+The rule in `70-soundhold.rules` matches Bluetooth devices whose report description starts with the sensor usage of the Android head tracker service. Other keyboards, mice and devices are not affected.
+
+It gives the user signed in at the computer read and write access to that device file, the same access desktop sessions get for sound cards and game controllers. To check a device, the rule reads the first four bytes of its report description with `od`. It grants nothing else.
+
+To remove the rule after `install-rule.sh`:
+
+```
+sudo rm /etc/udev/rules.d/70-soundhold.rules
+sudo udevadm control --reload
+```
+
+Removing the package removes its copy of the rule.
 
 ## Usage
 
