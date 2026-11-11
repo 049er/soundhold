@@ -9,7 +9,7 @@ arch=$(dpkg --print-architecture)
 out=target/deb
 work=$out/work
 
-RUSTFLAGS="--remap-path-prefix=$HOME=/build" cargo build --release
+RUSTFLAGS="--remap-path-prefix=$HOME=/build" cargo build --release --locked
 
 rm -rf "$work"
 mkdir -p "$work/debian"

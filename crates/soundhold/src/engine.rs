@@ -133,6 +133,7 @@ impl Engine {
             (true, SensorState::Searching) => "reconnecting",
             (true, SensorState::NoAccess) => "no_access",
             (true, SensorState::NoData) => "no_data",
+            (true, SensorState::NoTracker) => "no_sensor",
             (true, SensorState::Working) => "spatial",
         };
         let (turn, height) = rotation.map_or((0.0, 0.0), |r| sensor::direction(r, 0.0));

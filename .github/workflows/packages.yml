@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   deb:
@@ -21,19 +21,21 @@ jobs:
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.99.1
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - name: Test
-        run: cargo test --workspace
+        run: cargo test --workspace --locked
       - name: Build packages
         run: sh packaging/build-deb.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: deb
           path: target/deb/*.deb
 
   rpm:
     runs-on: ubuntu-latest
-    container: fedora:latest
+    container: fedora:45
     steps:
       - name: Install build tools
         run: dnf install -y curl gcc clang-devel pkgconf-pkg-config pipewire-devel gtk4-devel libadwaita-devel rpm-build git tar gzip
@@ -41,12 +43,14 @@ jobs:
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.99.1
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - name: Build packages
         run: sh packaging/build-rpm.sh
       - name: Check that the packages install
         run: dnf install -y target/rpm/RPMS/*/*.rpm
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: rpm
           path: target/rpm/RPMS/*/*.rpm
@@ -55,11 +59,15 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     needs: [deb, rpm]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: packages
           merge-multiple: true
+      - name: Write checksums
+        run: cd packages && sha256sum * > SHA256SUMS
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}

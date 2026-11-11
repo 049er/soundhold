@@ -73,7 +73,7 @@ fn run(seconds: Option<f64>, codec: Option<&str>) -> Result<()> {
     if daemon::is_running()? {
         return Err(anyhow!("the background program is running, stop it first with: soundhold stop"));
     }
-    let address = bluetooth::find_headphones().ok_or_else(|| anyhow!("no connected Sony headphones with a head tracker service found"))?;
+    let address = bluetooth::find_headphones().ok_or_else(|| anyhow!("no connected headphones with a head tracker service found"))?;
     let interactive = std::io::stdin().is_terminal();
     install_signals();
 

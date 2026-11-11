@@ -23,7 +23,30 @@ const SLIDER_TOLERANCE: f64 = 0.5;
 const HEAD_LABEL_LENGTH: usize = 18;
 const ADD_HEAD: &str = "add-your-own";
 
-type Reply = (String, f64, f64, bool, bool, String, Vec<String>, String, f64, f64, String, Vec<String>);
+type Reply = (String, f64, f64, bool, bool, String, Vec<String>, String, f64, f64, String, Vec<String>, String);
+
+#[derive(Clone, Default)]
+struct Snapshot {
+    state: String,
+    turn: f64,
+    height: f64,
+    spatial: bool,
+    autostart: bool,
+    codec: String,
+    codecs: Vec<String>,
+    error: String,
+    width: f64,
+    level: f64,
+    head: String,
+    heads: Vec<String>,
+    device: String,
+}
+
+impl From<Reply> for Snapshot {
+    fn from(r: Reply) -> Self {
+        Self { state: r.0, turn: r.1, height: r.2, spatial: r.3, autostart: r.4, codec: r.5, codecs: r.6, error: r.7, width: r.8, level: r.9, head: r.10, heads: r.11, device: r.12 }
+    }
+}
 
 /// Ignores status refreshes for a short time after the user changes a control.
 #[derive(Default)]
@@ -129,7 +152,7 @@ struct Ui {
     bus: gio::DBusConnection,
     updating: Cell<bool>,
     polls: Cell<u32>,
-    latest: RefCell<Option<Reply>>,
+    latest: RefCell<Snapshot>,
     state: gtk::Label,
     detail: gtk::Label,
     error: gtk::Label,
@@ -143,6 +166,7 @@ struct Ui {
     autostart: Toggle,
     enable: Toggle,
     start: gtk::Button,
+    report_headphones: gtk::Button,
 }
 
 impl Ui {
@@ -186,8 +210,9 @@ impl Ui {
     fn show(&self, reply: Option<Reply>) {
         self.updating.set(true);
         let running = reply.is_some();
-        self.latest.replace(reply.clone());
-        let (state, turn, height, spatial, autostart, codec, codecs, error, width, level, head, heads) = reply.unwrap_or_default();
+        let snapshot = reply.map(Snapshot::from).unwrap_or_default();
+        self.latest.replace(snapshot.clone());
+        let Snapshot { state, turn, height, spatial, autostart, codec, codecs, error, width, level, head, heads, .. } = snapshot;
         let (title, detail) = match (running, state.as_str()) {
             (false, _) => ("Stopped", "The app is disabled"),
             (_, "spatial") => ("Head tracking is on", "Sound stays in place as you turn"),
@@ -195,6 +220,7 @@ impl Ui {
             (_, "reconnecting") => ("Connecting to the sensor", "Sound plays but will not follow your head yet"),
             (_, "no_access") => ("No access to the head sensor", "Sound plays but will not follow your head. Run install-rule.sh or reinstall Soundhold"),
             (_, "no_data") => ("Head sensor is not responding", "Sound plays but will not follow your head. Check the earbuds are in and head tracking is on in the headphone app"),
+            (_, "no_sensor") => ("No head sensor found", "Sound plays but will not follow your head. These headphones may not be supported yet"),
             (_, "unsupported") => ("Headphones not supported", "The connected headphones have no head sensor Soundhold can use"),
             (_, "starting") => ("Starting", "Setting up the sound"),
             _ => ("Waiting for headphones", "Connect your headphones"),
@@ -204,6 +230,7 @@ impl Ui {
         self.error.set_label(&error);
         self.error.set_visible(!error.is_empty());
         let tracking = state == "spatial";
+        self.report_headphones.set_visible(matches!(state.as_str(), "no_sensor" | "no_data" | "unsupported"));
         self.position.set_label(&if tracking { format!("Turn {}   Height {}", degrees(turn), degrees(height)) } else { "Not tracking".to_string() });
         self.centre.set_sensitive(tracking);
         for control in [
@@ -236,7 +263,7 @@ impl Ui {
     fn retry_start(&self, running: bool) {
         let polls = self.polls.get().wrapping_add(1);
         self.polls.set(polls);
-        if !running && self.enable.hold.active() && self.enable.control.is_active() && polls % ENABLE_RETRY_POLLS == 0 {
+        if !running && self.enable.hold.active() && self.enable.control.is_active() && polls.is_multiple_of(ENABLE_RETRY_POLLS) {
             start_daemon();
         }
     }
@@ -246,13 +273,18 @@ impl Ui {
     }
 
     fn report_issue(&self, window: &gtk::ApplicationWindow) {
-        let s = self.latest.borrow().clone().unwrap_or_default();
-        self.open_issue(window, "", &issue_body(env!("CARGO_PKG_VERSION"), &system_name(), &s.0, &s.5, &s.7));
+        let s = self.latest.borrow();
+        self.open_issue(window, "", &issue_body(env!("CARGO_PKG_VERSION"), &system_name(), &s.state, &s.codec, &s.error));
+    }
+
+    fn report_headphones(&self, window: &gtk::ApplicationWindow) {
+        let s = self.latest.borrow();
+        self.open_issue(window, "Headphones report: ", &headphones_body(env!("CARGO_PKG_VERSION"), &system_name(), &s.device, &s.state));
     }
 
     fn share_setup(&self, window: &gtk::ApplicationWindow) {
-        let s = self.latest.borrow().clone().unwrap_or_default();
-        self.open_issue(window, "Setup report: ", &setup_body(env!("CARGO_PKG_VERSION"), &system_name(), &s.10, s.8, s.9, &s.5));
+        let s = self.latest.borrow();
+        self.open_issue(window, "Setup report: ", &setup_body(env!("CARGO_PKG_VERSION"), &system_name(), &s.head, s.width, s.level, &s.codec));
     }
 }
 
@@ -294,6 +326,10 @@ fn issue_url(title: &str, body: &str) -> String {
 
 fn issue_body(version: &str, system: &str, state: &str, codec: &str, error: &str) -> String {
     format!("Headphones:\n\nWhat happened:\n\nVersion: {version}\nSystem: {system}\nState: {state}\nCodec: {codec}\nLast error: {error}\n")
+}
+
+fn headphones_body(version: &str, system: &str, device: &str, state: &str) -> String {
+    format!("Headphones:\n\nWhat happened:\n\n{device}State: {state}\nVersion: {version}\nSystem: {system}\n")
 }
 
 fn setup_body(version: &str, system: &str, head: &str, width: f64, level: f64, codec: &str) -> String {
@@ -433,6 +469,7 @@ fn status_card(ui: &Ui) -> gtk::Box {
     status.append(&ui.error);
     status.append(&ui.centre);
     status.append(&ui.position);
+    status.append(&ui.report_headphones);
     status
 }
 
@@ -509,6 +546,10 @@ fn build_window(app: &adw::Application, bus: gio::DBusConnection) {
     start.add_css_class("m3-filled-button");
     start.set_visible(false);
 
+    let report_headphones = gtk::Button::with_label("Report these headphones");
+    report_headphones.add_css_class("m3-outlined-button");
+    report_headphones.set_visible(false);
+
     let header_text = label("Advanced", "m3-body-large");
     header_text.set_hexpand(true);
     let chevron = gtk::Image::from_icon_name("go-down-symbolic");
@@ -533,7 +574,7 @@ fn build_window(app: &adw::Application, bus: gio::DBusConnection) {
         bus,
         updating: Cell::new(false),
         polls: Cell::new(0),
-        latest: RefCell::new(None),
+        latest: RefCell::default(),
         state: label("", "m3-title-medium"),
         detail: label("", "m3-body-medium"),
         error: label("", "m3-error"),
@@ -547,6 +588,7 @@ fn build_window(app: &adw::Application, bus: gio::DBusConnection) {
         autostart: Toggle::new(),
         enable: Toggle::new(),
         start: start.clone(),
+        report_headphones: report_headphones.clone(),
     });
     ui.error.set_wrap(true);
     ui.error.set_visible(false);
@@ -624,6 +666,8 @@ fn build_window(app: &adw::Application, bus: gio::DBusConnection) {
     let (target, parent) = (ui.clone(), window.clone());
     report.connect_clicked(move |_| target.report_issue(&parent));
     let (target, parent) = (ui.clone(), window.clone());
+    report_headphones.connect_clicked(move |_| target.report_headphones(&parent));
+    let (target, parent) = (ui.clone(), window.clone());
     share.connect_clicked(move |_| target.share_setup(&parent));
 
     let weak = Rc::downgrade(&ui);
@@ -668,6 +712,14 @@ mod tests {
     #[test]
     fn issue_url_escapes_title_and_body() {
         assert_eq!(issue_url("Setup report: ", "A b\nC"), "https://github.com/049er/soundhold/issues/new?title=Setup%20report%3A%20&body=A%20b%0AC");
+    }
+
+    #[test]
+    fn headphones_body_asks_for_the_model_and_lists_the_ids() {
+        assert_eq!(
+            headphones_body("1.0", "Fedora", "Bluetooth IDs: usb:v1234\n", "no_sensor"),
+            "Headphones:\n\nWhat happened:\n\nBluetooth IDs: usb:v1234\nState: no_sensor\nVersion: 1.0\nSystem: Fedora\n"
+        );
     }
 
     #[test]

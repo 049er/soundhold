@@ -35,7 +35,7 @@ Install the access rule once:
 sudo sh install-rule.sh
 ```
 
-The rule covers Sony Bluetooth devices only.
+The rule covers Bluetooth head tracker devices only.
 
 ## Usage
 
@@ -80,7 +80,7 @@ The window saves sound width, level, codec and head data in `~/.config/soundhold
 cargo run -p soundhold -- check
 ```
 
-Please open an issue with the output and your headphone model. To report which settings work best, use Share setup in the window.
+Please open an issue with the output and your headphone model, or use Report these headphones in the window when it appears. To report which settings work best, use Share setup in the window.
 
 ## Credits
 

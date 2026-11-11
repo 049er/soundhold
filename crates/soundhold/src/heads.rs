@@ -58,16 +58,23 @@ pub fn list() -> Vec<String> {
     names_in(&folders())
 }
 
+fn safe_name(name: &str) -> bool {
+    name.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-' | ' '))
+}
+
 fn add_to(source: &Path, shipped: &Path, destination: &Path) -> Result<String> {
+    let name = source.file_name().ok_or_else(|| anyhow!("the file has no name"))?.to_string_lossy().into_owned();
     if source.extension().is_none_or(|e| e != EXTENSION) {
-        bail!("{} is not a .sofa file", source.display());
+        bail!("{name} is not a .sofa file");
+    }
+    if !safe_name(&name) {
+        bail!("{name} has characters other than letters, digits, spaces, dots, dashes and underscores");
     }
     let mut signature = [0u8; 8];
-    File::open(source).and_then(|mut file| file.read_exact(&mut signature)).with_context(|| format!("could not read {}", source.display()))?;
+    File::open(source).and_then(|mut file| file.read_exact(&mut signature)).with_context(|| format!("could not read {name}"))?;
     if signature != *HDF5_SIGNATURE {
-        bail!("{} is not a valid .sofa file", source.display());
+        bail!("{name} is not a valid .sofa file");
     }
-    let name = source.file_name().ok_or_else(|| anyhow!("the file has no name"))?.to_string_lossy().into_owned();
     if shipped.join(&name).exists() {
         bail!("{name} is already included");
     }
@@ -98,11 +105,12 @@ mod tests {
         let shipped = empty_folder("shipped");
         let destination = empty_folder("destination");
         std::fs::write(shipped.join("included.sofa"), HDF5_SIGNATURE).unwrap();
-        let cases: [(&str, &[u8], Result<&str, &str>); 4] = [
+        let cases: [(&str, &[u8], Result<&str, &str>); 5] = [
             ("mine.sofa", HDF5_SIGNATURE, Ok("mine.sofa")),
-            ("mine.wav", HDF5_SIGNATURE, Err("is not a .sofa file")),
-            ("text.sofa", b"not a sofa file", Err("is not a valid .sofa file")),
+            ("mine.wav", HDF5_SIGNATURE, Err("mine.wav is not a .sofa file")),
+            ("text.sofa", b"not a sofa file", Err("text.sofa is not a valid .sofa file")),
             ("included.sofa", HDF5_SIGNATURE, Err("included.sofa is already included")),
+            ("a\"b.sofa", HDF5_SIGNATURE, Err("a\"b.sofa has characters other than letters, digits, spaces, dots, dashes and underscores")),
         ];
         for (name, content, expected) in cases {
             let file = source.join(name);
@@ -112,7 +120,7 @@ mod tests {
                     assert_eq!(found, wanted);
                     assert!(destination.join(wanted).is_file());
                 }
-                (Err(found), Err(wanted)) => assert!(found.to_string().ends_with(wanted), "{name}: {found}"),
+                (Err(found), Err(wanted)) => assert_eq!(found.to_string(), wanted),
                 (found, wanted) => panic!("{name}: got {found:?}, expected {wanted:?}"),
             }
         }

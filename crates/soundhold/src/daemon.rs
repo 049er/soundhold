@@ -48,6 +48,7 @@ struct Status {
     level: f64,
     head: String,
     heads: Vec<String>,
+    device: String,
 }
 
 #[derive(Clone)]
@@ -78,9 +79,9 @@ struct Service(Controls);
 #[zbus::interface(name = "io.github.soundhold.Daemon")]
 impl Service {
     #[allow(clippy::type_complexity)]
-    fn status(&self) -> (String, f64, f64, bool, bool, String, Vec<String>, String, f64, f64, String, Vec<String>) {
+    fn status(&self) -> (String, f64, f64, bool, bool, String, Vec<String>, String, f64, f64, String, Vec<String>, String) {
         let s = self.0.status.lock().unwrap().clone();
-        (s.state, s.turn, s.height, s.spatial, s.autostart, s.codec, s.codecs, s.error, s.width, s.level, s.head, s.heads)
+        (s.state, s.turn, s.height, s.spatial, s.autostart, s.codec, s.codecs, s.error, s.width, s.level, s.head, s.heads, s.device)
     }
 
     fn set_spatial(&self, enabled: bool) {
@@ -157,6 +158,7 @@ fn state_label(state: &str) -> &'static str {
         "reconnecting" => "Connecting to the head sensor",
         "no_access" => "Head sensor needs permission",
         "no_data" => "Head sensor is not responding",
+        "no_sensor" => "No head sensor found",
         "unsupported" => "Headphones are not supported",
         "starting" => "Starting up",
         _ => "No headphones connected",
@@ -233,23 +235,31 @@ impl ksni::Tray for Tray {
 struct Watch {
     address: Mutex<Option<String>>,
     unsupported: AtomicBool,
+    description: Mutex<String>,
 }
 
 fn watch_headphones() -> Arc<Watch> {
-    let watch = Arc::new(Watch { address: Mutex::new(None), unsupported: AtomicBool::new(false) });
+    let watch = Arc::new(Watch { address: Mutex::new(None), unsupported: AtomicBool::new(false), description: Mutex::default() });
     let shared = watch.clone();
     thread::spawn(move || {
         let mut misses = 0;
         loop {
             let scan = bluetooth::scan();
-            shared.unsupported.store(scan == Scan::Unsupported, Ordering::Relaxed);
-            if let Scan::Supported(address) = scan {
-                misses = 0;
-                *shared.address.lock().unwrap() = Some(address);
-            } else {
-                misses += 1;
-                if misses >= MISSES_BEFORE_GONE {
-                    *shared.address.lock().unwrap() = None;
+            shared.unsupported.store(matches!(scan, Scan::Unsupported { .. }), Ordering::Relaxed);
+            match scan {
+                Scan::Supported { address, description } => {
+                    misses = 0;
+                    *shared.address.lock().unwrap() = Some(address);
+                    *shared.description.lock().unwrap() = description;
+                }
+                other => {
+                    if let Scan::Unsupported { description } = other {
+                        *shared.description.lock().unwrap() = description;
+                    }
+                    misses += 1;
+                    if misses >= MISSES_BEFORE_GONE {
+                        *shared.address.lock().unwrap() = None;
+                    }
                 }
             }
             thread::sleep(SEARCH_INTERVAL);
@@ -444,6 +454,7 @@ pub fn run() -> Result<()> {
             let mut published = status.lock().unwrap();
             let idle = if headphones.unsupported.load(Ordering::Relaxed) { "unsupported" } else { "waiting" };
             published.state = reading.as_ref().map_or(idle, |r| r.state).into();
+            published.device = headphones.description.lock().unwrap().clone();
             published.turn = reading.as_ref().map_or(0.0, |r| r.turn);
             published.height = reading.as_ref().map_or(0.0, |r| r.height);
             if let Some(running) = &engine {

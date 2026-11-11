@@ -14,6 +14,7 @@ const SENSOR_ON: u8 = 0x03;
 const SENSOR_OFF: u8 = 0x00;
 const RECONNECT_INTERVAL: Duration = Duration::from_secs(3);
 const PAUSE_STEP: Duration = Duration::from_millis(100);
+const SEARCHES_BEFORE_NO_TRACKER: u32 = 3;
 const NO_DATA_AFTER: Duration = Duration::from_secs(3);
 const RECONNECT_AFTER_SILENCE: Duration = Duration::from_secs(10);
 const RETRY_AFTER_SILENCE: Duration = Duration::from_secs(60);
@@ -26,6 +27,7 @@ pub enum SensorState {
     Searching,
     NoAccess,
     NoData,
+    NoTracker,
     Working,
 }
 
@@ -164,13 +166,16 @@ fn read_reports(mut file: &File, shared: &Shared, no_data_after: Duration, give_
 pub fn spawn(shared: Arc<Shared>, address: String) -> JoinHandle<()> {
     thread::spawn(move || {
         let mut silence_limit = RECONNECT_AFTER_SILENCE;
+        let mut searches = 0;
         while !shared.stop.load(Ordering::Relaxed) {
             let Some(path) = find_device() else {
-                shared.set_state(SensorState::Searching);
+                searches += 1;
+                shared.set_state(if searches >= SEARCHES_BEFORE_NO_TRACKER { SensorState::NoTracker } else { SensorState::Searching });
                 bluetooth::connect_tracker(&address);
                 shared.pause(RECONNECT_INTERVAL);
                 continue;
             };
+            searches = 0;
             let file = match open(&path) {
                 Ok(file) => file,
                 Err(error) => {
@@ -199,7 +204,7 @@ pub fn spawn(shared: Arc<Shared>, address: String) -> JoinHandle<()> {
 
 /// Prints whether the connected headphones provide a working head tracker.
 pub fn check() -> Result<()> {
-    let address = bluetooth::find_headphones().ok_or_else(|| anyhow!("no connected Sony headphones with a head tracker service found"))?;
+    let address = bluetooth::find_headphones().ok_or_else(|| anyhow!("no connected headphones with a head tracker service found"))?;
     if find_device().is_none() {
         bluetooth::connect_tracker(&address);
         thread::sleep(Duration::from_secs(2));

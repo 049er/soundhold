@@ -52,20 +52,19 @@ fn choose_profile<'a>(profiles: &'a [Value], codec: Option<&str>) -> Result<&'a 
     })
 }
 
-fn find_output(address: &str, codec: Option<&str>) -> Result<Option<String>> {
-    let prefix = format!("bluez_output.{}", device_suffix(address));
-    Ok(pipewire_objects()?.iter().find_map(|object| {
+/// The name of the output node that belongs to the card with id `card`.
+fn output_of(objects: &[Value], card: u64, codec: Option<&str>) -> Option<String> {
+    objects.iter().find_map(|object| {
         let props = &object["info"]["props"];
-        let name = props["node.name"].as_str()?;
-        let matches = name.starts_with(&prefix) && codec.is_none_or(|c| props["api.bluez5.codec"] == c);
-        matches.then(|| name.to_string())
-    }))
+        let matches = props["device.id"] == card && props["media.class"] == "Audio/Sink" && codec.is_none_or(|c| props["api.bluez5.codec"] == c);
+        matches.then(|| props["node.name"].as_str().map(str::to_string)).flatten()
+    })
 }
 
-fn wait_for_output(address: &str, codec: Option<&str>) -> Result<String> {
+fn wait_for_output(card: u64, codec: Option<&str>) -> Result<String> {
     let started = Instant::now();
     loop {
-        if let Some(name) = find_output(address, codec)? {
+        if let Some(name) = output_of(&pipewire_objects()?, card, codec) {
             return Ok(name);
         }
         if started.elapsed() >= OUTPUT_TIMEOUT {
@@ -119,12 +118,14 @@ impl Session {
     }
 
     fn apply_codec(&mut self) -> Result<()> {
-        self.codec = self.select_profile()?;
-        self.output = wait_for_output(&self.address, self.codec.as_deref())?;
+        let (card, codec) = self.select_profile()?;
+        self.codec = codec;
+        self.output = wait_for_output(card, self.codec.as_deref())?;
         Ok(())
     }
 
-    fn select_profile(&mut self) -> Result<Option<String>> {
+    /// Returns the card id and the codec of the chosen profile.
+    fn select_profile(&mut self) -> Result<(u64, Option<String>)> {
         let card_name = format!("bluez_card.{}", device_suffix(&self.address));
         let codec = self.requested_codec.as_deref();
         let objects = pipewire_objects()?;
@@ -132,6 +133,7 @@ impl Session {
             .iter()
             .find(|o| o["info"]["props"]["device.name"] == card_name.as_str())
             .ok_or_else(|| anyhow!("the headphones are not available in PipeWire"))?;
+        let card_number = card["id"].as_u64().ok_or_else(|| anyhow!("the headphones have no PipeWire id"))?;
         let params = &card["info"]["params"];
         let profiles = params["EnumProfile"].as_array().map_or(&[][..], Vec::as_slice);
         let chosen = choose_profile(profiles, codec)?;
@@ -145,7 +147,7 @@ impl Session {
                 self.restore_profile = Some((card_id, active.to_string()));
             }
         }
-        Ok(chosen_codec)
+        Ok((card_number, chosen_codec))
     }
 
     pub fn use_output(&mut self, node: u32) -> Result<()> {
@@ -173,6 +175,14 @@ impl Drop for Session {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn output_of_matches_only_sinks_of_the_card() {
+        let node = |id: u64, class: &str, name: &str| json!({"info": {"props": {"device.id": id, "media.class": class, "node.name": name, "api.bluez5.codec": "aac"}}});
+        let objects = [node(7, "Audio/Sink", "fake"), node(5, "Audio/Source", "mic"), node(5, "Audio/Sink", "buds")];
+        assert_eq!(output_of(&objects, 5, Some("aac")), Some("buds".to_string()));
+        assert_eq!(output_of(&objects, 5, Some("sbc")), None);
+    }
 
     #[test]
     fn choose_profile_matches_the_requested_codec() {

@@ -31,13 +31,18 @@ pub struct Audio {
     pub wet_gain: f64,
 }
 
+/// Escapes text for a quoted string in a PipeWire config file.
+fn quoted(text: &str) -> String {
+    text.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
 fn start_filter(output: &str, sofa: &Path, generation: u32) -> Result<Child> {
     let text = FILTER
-        .replace("@SOFA@", &sofa.canonicalize()?.to_string_lossy())
-        .replace("@TARGET@", output)
+        .replace("@SOFA@", &quoted(&sofa.canonicalize()?.to_string_lossy()))
+        .replace("@TARGET@", &quoted(output))
         .replace("@GEN@", &generation.to_string());
-    let directory = std::env::var_os("XDG_RUNTIME_DIR").map_or_else(std::env::temp_dir, PathBuf::from);
-    let config = directory.join("soundhold-filter.conf");
+    let directory = std::env::var_os("XDG_RUNTIME_DIR").ok_or_else(|| anyhow!("XDG_RUNTIME_DIR is not set"))?;
+    let config = PathBuf::from(directory).join("soundhold-filter.conf");
     std::fs::write(&config, text)?;
     Command::new("pipewire")
         .arg("-c")
@@ -74,13 +79,13 @@ fn send_params(node: &pw::node::Node, params: &[(String, f32)]) -> Result<()> {
 
 fn run_loop(receiver: pw::channel::Receiver<Message>, ready: mpsc::Sender<u32>, node_name: String) -> Result<()> {
     pw::init();
-    let mainloop = pw::main_loop::MainLoop::new(None)?;
-    let context = pw::context::Context::new(&mainloop)?;
-    let core = context.connect(None)?;
-    let registry = Rc::new(core.get_registry()?);
+    let mainloop = pw::main_loop::MainLoopRc::new(None)?;
+    let context = pw::context::ContextRc::new(&mainloop, None)?;
+    let core = context.connect_rc(None)?;
+    let registry = core.get_registry_rc()?;
     let node: Rc<RefCell<Option<pw::node::Node>>> = Rc::new(RefCell::new(None));
 
-    let bind_registry = Rc::downgrade(&registry);
+    let bind_registry = registry.downgrade();
     let bind_node = node.clone();
     let _listener = registry
         .add_listener_local()
@@ -171,5 +176,15 @@ impl Drop for Audio {
         }
         unsafe { libc::kill(self.filter.id() as i32, libc::SIGTERM) };
         let _ = self.filter.wait();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn quoted_escapes_quotes_and_backslashes() {
+        assert_eq!(quoted(r#"/home/a"b\c.sofa"#), r#"/home/a\"b\\c.sofa"#);
     }
 }
