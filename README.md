@@ -35,9 +35,9 @@ Linux gives only root access to the raw device files in `/dev/hidraw*` that carr
 sudo sh install-rule.sh
 ```
 
-The rule in `70-soundhold.rules` matches Bluetooth devices whose report description starts with the sensor usage of the Android head tracker service. Other keyboards, mice and devices are not affected.
+The rule in `70-soundhold.rules` matches Bluetooth devices whose report description starts with the HID custom sensor usage, which the Android head tracker service uses. Keyboards and mice do not start with this usage.
 
-It gives the user signed in at the computer read and write access to that device file, the same access desktop sessions get for sound cards and game controllers. To check a device, the rule reads the first four bytes of its report description with `od`. It grants nothing else.
+It gives the user signed in at the computer read and write access to that device file, the same access desktop sessions get for sound cards and game controllers. To check a Bluetooth device, the rule runs `/bin/sh`, `od` and `grep` as root to read the first four bytes of its report description. It grants nothing else.
 
 To remove the rule after `install-rule.sh`:
 

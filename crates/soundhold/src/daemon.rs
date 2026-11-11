@@ -89,12 +89,18 @@ impl Service {
     }
 
     fn set_width(&self, degrees: f64) {
+        if !degrees.is_finite() {
+            return;
+        }
         let degrees = settings::clamp_width(degrees);
         self.0.status.lock().unwrap().width = degrees;
         self.0.send(Command::SetWidth(degrees));
     }
 
     fn set_level(&self, level: f64) {
+        if !level.is_finite() {
+            return;
+        }
         let level = settings::clamp_level(level);
         self.0.status.lock().unwrap().level = level;
         self.0.send(Command::SetLevel(level));
