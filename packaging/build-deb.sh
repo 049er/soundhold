@@ -5,6 +5,7 @@ set -eu
 root=$(dirname "$(dirname "$(readlink -f "$0")")")
 cd "$root"
 version=$(sed -n 's/^version = "\(.*\)"/\1/p' crates/soundhold/Cargo.toml | head -1)
+version=$version+git$(date -u +%Y%m%d%H%M).$(git rev-parse --short HEAD)
 arch=$(dpkg --print-architecture)
 out=target/deb
 work=$out/work

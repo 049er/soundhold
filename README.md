@@ -21,7 +21,7 @@ cargo build
 
 `libgtk-4-dev` and `libadwaita-1-dev` are only needed for the window. Without them, build with `cargo build -p soundhold`.
 
-To build `.deb` packages in `target/deb`, install `dpkg-dev` and run `sh packaging/build-deb.sh`.
+To build `.deb` packages in `target/deb`, install `dpkg-dev` and run `sh packaging/build-deb.sh`. The version gets a build time and commit suffix, such as `0.1.0+git202611111707.6e88015`, so each build installs over the previous one.
 
 To build `.rpm` packages in `target/rpm/RPMS`, install `rpm-build` and run `sh packaging/build-rpm.sh`.
 
