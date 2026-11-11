@@ -56,7 +56,9 @@ fn choose_profile<'a>(profiles: &'a [Value], codec: Option<&str>) -> Result<&'a 
 fn output_of(objects: &[Value], card: u64, codec: Option<&str>) -> Option<String> {
     objects.iter().find_map(|object| {
         let props = &object["info"]["props"];
-        let matches = props["device.id"] == card && props["media.class"] == "Audio/Sink" && codec.is_none_or(|c| props["api.bluez5.codec"] == c);
+        let sink = props["media.class"].as_str().is_some_and(|class| class.starts_with("Audio/Sink"));
+        let node_codec = props["api.bluez5.codec"].as_str()?;
+        let matches = props["device.id"] == card && sink && codec.is_none_or(|c| node_codec == c);
         matches.then(|| props["node.name"].as_str().map(str::to_string)).flatten()
     })
 }
@@ -177,11 +179,14 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn output_of_matches_only_sinks_of_the_card() {
+    fn output_of_matches_only_bluetooth_sinks_of_the_card() {
         let node = |id: u64, class: &str, name: &str| json!({"info": {"props": {"device.id": id, "media.class": class, "node.name": name, "api.bluez5.codec": "aac"}}});
-        let objects = [node(7, "Audio/Sink", "fake"), node(5, "Audio/Source", "mic"), node(5, "Audio/Sink", "buds")];
-        assert_eq!(output_of(&objects, 5, Some("aac")), Some("buds".to_string()));
-        assert_eq!(output_of(&objects, 5, Some("sbc")), None);
+        let wrapper = json!({"info": {"props": {"device.id": 5, "media.class": "Audio/Sink", "node.name": "wrapper"}}});
+        let objects = [wrapper, node(7, "Audio/Sink", "fake"), node(5, "Audio/Source", "mic"), node(5, "Audio/Sink/Internal", "buds")];
+        let cases = [(Some("aac"), Some("buds".to_string())), (None, Some("buds".to_string())), (Some("sbc"), None)];
+        for (codec, expected) in cases {
+            assert_eq!(output_of(&objects, 5, codec), expected, "{codec:?}");
+        }
     }
 
     #[test]
