@@ -1,0 +1,12 @@
+post_install() {
+  udevadm control --reload || true
+  udevadm trigger --subsystem-match=hidraw || true
+}
+
+post_upgrade() {
+  post_install
+}
+
+post_remove() {
+  udevadm control --reload || true
+}

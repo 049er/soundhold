@@ -1,0 +1,55 @@
+# Maintainer: 049er <22274130+049er@users.noreply.github.com>
+
+pkgbase=soundhold
+pkgname=(soundhold soundhold-window)
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Head tracked spatial sound for Bluetooth headphones'
+arch=(x86_64)
+url='https://github.com/049er/soundhold'
+license=('GPL-3.0-only' 'CC-BY-SA-3.0')
+makedepends=(cargo clang pipewire pipewire-audio wireplumber bluez systemd gtk4 libadwaita glib2 hicolor-icon-theme glibc libgcc)
+options=(!lto !debug)
+source=("$pkgbase-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('d7c6938c6c80f5fca64b382b0605cb2f506e19d5ece70af573af45f7c0094744')
+
+prepare() {
+  cd "$pkgbase-$pkgver"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+  cd "$pkgbase-$pkgver"
+  export RUSTUP_TOOLCHAIN=stable
+  export CARGO_TARGET_DIR=target
+  cargo build --frozen --release
+}
+
+check() {
+  cd "$pkgbase-$pkgver"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo test --frozen --workspace
+}
+
+package_soundhold() {
+  depends=(pipewire pipewire-audio wireplumber bluez systemd hicolor-icon-theme glibc libgcc)
+  optdepends=('soundhold-window: settings window')
+  install=soundhold.install
+  cd "$pkgbase-$pkgver"
+  install -Dm755 target/release/soundhold "$pkgdir/usr/bin/soundhold"
+  install -Dm644 -t "$pkgdir/usr/share/soundhold" sofa/*.sofa
+  install -Dm644 70-soundhold.rules "$pkgdir/usr/lib/udev/rules.d/70-soundhold.rules"
+  install -Dm644 data/icons/hicolor/scalable/apps/soundhold.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/soundhold.svg"
+  install -Dm644 data/icons/hicolor/symbolic/apps/soundhold-symbolic.svg "$pkgdir/usr/share/icons/hicolor/symbolic/apps/soundhold-symbolic.svg"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 packaging/copyright "$pkgdir/usr/share/licenses/$pkgname/copyright"
+}
+
+package_soundhold-window() {
+  pkgdesc='Window for Soundhold'
+  depends=("soundhold=$pkgver" gtk4 libadwaita glib2 glibc libgcc)
+  cd "$pkgbase-$pkgver"
+  install -Dm755 target/release/soundhold-window "$pkgdir/usr/bin/soundhold-window"
+  install -Dm644 packaging/io.github.soundhold.Window.desktop "$pkgdir/usr/share/applications/io.github.soundhold.Window.desktop"
+}
