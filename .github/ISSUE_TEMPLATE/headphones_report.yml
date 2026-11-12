@@ -18,5 +18,3 @@ body:
       label: Bluetooth IDs and state
       description: Filled in by Report these headphones in the window.
       render: text
-    validations:
-      required: true

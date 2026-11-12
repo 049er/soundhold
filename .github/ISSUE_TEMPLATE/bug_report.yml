@@ -21,15 +21,11 @@ body:
       label: System
       description: Distribution and version.
       placeholder: Ubuntu 26.04
-    validations:
-      required: true
   - type: input
     id: pipewire
     attributes:
       label: PipeWire version
       description: The output of `pipewire --version`.
-    validations:
-      required: true
   - type: dropdown
     id: install
     attributes:
@@ -38,15 +34,11 @@ body:
         - .deb package
         - .rpm package
         - Built from source
-    validations:
-      required: true
   - type: input
     id: version
     attributes:
       label: Soundhold version
       description: From `apt show soundhold` or `rpm -q soundhold`. When built from source, the commit.
-    validations:
-      required: true
   - type: textarea
     id: details
     attributes:

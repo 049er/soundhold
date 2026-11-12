@@ -18,8 +18,6 @@ body:
         - "3"
         - "2"
         - "1"
-    validations:
-      required: true
   - type: textarea
     id: notes
     attributes:
@@ -30,5 +28,3 @@ body:
       label: Settings
       description: Filled in by Share setup in the window.
       render: text
-    validations:
-      required: true
