@@ -1,0 +1,22 @@
+name: Headphones report
+description: Headphones that Soundhold does not recognise as a head tracker
+body:
+  - type: input
+    id: headphones
+    attributes:
+      label: Headphones
+      placeholder: Sony WF-1000XM5
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+  - type: textarea
+    id: details
+    attributes:
+      label: Bluetooth IDs and state
+      description: Filled in by Report these headphones in the window.
+      render: text
+    validations:
+      required: true

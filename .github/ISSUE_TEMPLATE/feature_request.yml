@@ -1,0 +1,19 @@
+name: Feature request
+description: Suggest a change or an addition
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you want to do
+      description: The situation where Soundhold falls short today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+  - type: input
+    id: headphones
+    attributes:
+      label: Headphones
+      description: Only if the request depends on the model.

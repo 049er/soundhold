@@ -1,0 +1,34 @@
+name: Setup report
+description: Settings that work well on your headphones
+body:
+  - type: input
+    id: headphones
+    attributes:
+      label: Headphones
+      placeholder: Sony WF-1000XM5
+    validations:
+      required: true
+  - type: dropdown
+    id: rating
+    attributes:
+      label: Rating
+      options:
+        - "5"
+        - "4"
+        - "3"
+        - "2"
+        - "1"
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+  - type: textarea
+    id: settings
+    attributes:
+      label: Settings
+      description: Filled in by Share setup in the window.
+      render: text
+    validations:
+      required: true

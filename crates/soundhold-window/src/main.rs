@@ -268,23 +268,26 @@ impl Ui {
         }
     }
 
-    fn open_issue(&self, window: &gtk::ApplicationWindow, title: &str, body: &str) {
-        gtk::UriLauncher::new(&issue_url(title, body)).launch(Some(window), None::<&gio::Cancellable>, |_| {});
+    fn open_issue(&self, window: &gtk::ApplicationWindow, template: &str, title: &str, fields: &[(&str, &str)]) {
+        gtk::UriLauncher::new(&issue_url(template, title, fields)).launch(Some(window), None::<&gio::Cancellable>, |_| {});
     }
 
     fn report_issue(&self, window: &gtk::ApplicationWindow) {
         let s = self.latest.borrow();
-        self.open_issue(window, "", &issue_body(env!("CARGO_PKG_VERSION"), &system_name(), &s.state, &s.codec, &s.error));
+        let details = issue_details(&s.state, &s.codec, &s.error);
+        self.open_issue(window, "bug_report.yml", "", &[("system", &system_name()), ("version", env!("CARGO_PKG_VERSION")), ("details", &details)]);
     }
 
     fn report_headphones(&self, window: &gtk::ApplicationWindow) {
         let s = self.latest.borrow();
-        self.open_issue(window, "Headphones report: ", &headphones_body(env!("CARGO_PKG_VERSION"), &system_name(), &s.device, &s.state));
+        let details = headphones_details(env!("CARGO_PKG_VERSION"), &system_name(), &s.device, &s.state);
+        self.open_issue(window, "headphones_report.yml", "Headphones report: ", &[("details", &details)]);
     }
 
     fn share_setup(&self, window: &gtk::ApplicationWindow) {
         let s = self.latest.borrow();
-        self.open_issue(window, "Setup report: ", &setup_body(env!("CARGO_PKG_VERSION"), &system_name(), &s.head, s.width, s.level, &s.codec));
+        let settings = setup_details(env!("CARGO_PKG_VERSION"), &system_name(), &s.head, s.width, s.level, &s.codec);
+        self.open_issue(window, "setup_report.yml", "Setup report: ", &[("settings", &settings)]);
     }
 }
 
@@ -320,21 +323,27 @@ fn system_name() -> String {
         .map_or_else(|| "unknown".to_string(), |name| name.trim_matches('"').to_string())
 }
 
-fn issue_url(title: &str, body: &str) -> String {
-    format!("{ISSUES_URL}?title={}&body={}", glib::Uri::escape_string(title, None, false), glib::Uri::escape_string(body, None, false))
+/// `fields` fills the issue form fields with these ids in `.github/ISSUE_TEMPLATE/<template>`.
+fn issue_url(template: &str, title: &str, fields: &[(&str, &str)]) -> String {
+    let escape = |text: &str| glib::Uri::escape_string(text, None, false);
+    let mut url = format!("{ISSUES_URL}?template={}&title={}", escape(template), escape(title));
+    for (id, value) in fields {
+        url.push_str(&format!("&{}={}", escape(id), escape(value)));
+    }
+    url
 }
 
-fn issue_body(version: &str, system: &str, state: &str, codec: &str, error: &str) -> String {
-    format!("Headphones:\n\nWhat happened:\n\nVersion: {version}\nSystem: {system}\nState: {state}\nCodec: {codec}\nLast error: {error}\n")
+fn issue_details(state: &str, codec: &str, error: &str) -> String {
+    format!("State: {state}\nCodec: {codec}\nLast error: {error}\n")
 }
 
-fn headphones_body(version: &str, system: &str, device: &str, state: &str) -> String {
-    format!("Headphones:\n\nWhat happened:\n\n{device}State: {state}\nVersion: {version}\nSystem: {system}\n")
+fn headphones_details(version: &str, system: &str, device: &str, state: &str) -> String {
+    format!("{device}State: {state}\nVersion: {version}\nSystem: {system}\n")
 }
 
-fn setup_body(version: &str, system: &str, head: &str, width: f64, level: f64, codec: &str) -> String {
+fn setup_details(version: &str, system: &str, head: &str, width: f64, level: f64, codec: &str) -> String {
     format!(
-        "Headphones:\n\nRating from 1 to 5:\n\nNotes:\n\nHead data: {head}\nSound width: {width:.0}°\nSpatial level: {:.0}%\nCodec: {codec}\nVersion: {version}\nSystem: {system}\n",
+        "Head data: {head}\nSound width: {width:.0}°\nSpatial level: {:.0}%\nCodec: {codec}\nVersion: {version}\nSystem: {system}\n",
         level * 100.0
     )
 }
@@ -710,24 +719,28 @@ mod tests {
     use super::*;
 
     #[test]
-    fn issue_url_escapes_title_and_body() {
-        assert_eq!(issue_url("Setup report: ", "A b\nC"), "https://github.com/049er/soundhold/issues/new?title=Setup%20report%3A%20&body=A%20b%0AC");
-    }
-
-    #[test]
-    fn headphones_body_asks_for_the_model_and_lists_the_ids() {
+    fn issue_url_names_the_template_and_escapes_the_fields() {
         assert_eq!(
-            headphones_body("1.0", "Fedora", "Bluetooth IDs: usb:v1234\n", "no_sensor"),
-            "Headphones:\n\nWhat happened:\n\nBluetooth IDs: usb:v1234\nState: no_sensor\nVersion: 1.0\nSystem: Fedora\n"
+            issue_url("setup_report.yml", "Setup report: ", &[("settings", "A b\nC"), ("version", "1.0")]),
+            "https://github.com/049er/soundhold/issues/new?template=setup_report.yml&title=Setup%20report%3A%20&settings=A%20b%0AC&version=1.0"
         );
     }
 
     #[test]
-    fn setup_body_lists_the_current_settings() {
-        assert_eq!(
-            setup_body("1.0", "Ubuntu 26.04", "mine.sofa", 45.0, 0.9, "aac"),
-            "Headphones:\n\nRating from 1 to 5:\n\nNotes:\n\nHead data: mine.sofa\nSound width: 45°\nSpatial level: 90%\nCodec: aac\nVersion: 1.0\nSystem: Ubuntu 26.04\n"
-        );
+    fn details_list_the_current_state() {
+        for (details, expected) in [
+            (issue_details("running", "aac", "none"), "State: running\nCodec: aac\nLast error: none\n"),
+            (
+                headphones_details("1.0", "Fedora", "Bluetooth IDs: usb:v1234\n", "no_sensor"),
+                "Bluetooth IDs: usb:v1234\nState: no_sensor\nVersion: 1.0\nSystem: Fedora\n",
+            ),
+            (
+                setup_details("1.0", "Ubuntu 26.04", "mine.sofa", 45.0, 0.9, "aac"),
+                "Head data: mine.sofa\nSound width: 45°\nSpatial level: 90%\nCodec: aac\nVersion: 1.0\nSystem: Ubuntu 26.04\n",
+            ),
+        ] {
+            assert_eq!(details, expected);
+        }
     }
 
     #[test]

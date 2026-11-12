@@ -1,0 +1,57 @@
+name: Bug report
+description: Something does not work as it should
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: headphones
+    attributes:
+      label: Headphones
+      placeholder: Sony WF-1000XM5
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: System
+      description: Distribution and version.
+      placeholder: Ubuntu 26.04
+    validations:
+      required: true
+  - type: input
+    id: pipewire
+    attributes:
+      label: PipeWire version
+      description: The output of `pipewire --version`.
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How Soundhold was installed
+      options:
+        - .deb package
+        - .rpm package
+        - Built from source
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Soundhold version
+      description: From `apt show soundhold` or `rpm -q soundhold`. When built from source, the commit.
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: State and check output
+      description: |
+        The State, Codec and Last error lines that Report issue in the window fills in, and the output of `soundhold check`.
+        The `HID_NAME` line of the check output is the Bluetooth name of the headphones. Remove it if it holds your name.
+      render: text
