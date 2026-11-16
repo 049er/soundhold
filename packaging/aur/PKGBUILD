@@ -2,7 +2,7 @@
 
 pkgbase=soundhold
 pkgname=(soundhold soundhold-window)
-pkgver=0.1.0
+pkgver=0.1.1
 pkgrel=1
 pkgdesc='Head tracked spatial sound for Bluetooth headphones'
 arch=(x86_64)
@@ -11,7 +11,7 @@ license=('GPL-3.0-only' 'CC-BY-SA-3.0')
 makedepends=(cargo clang pipewire pipewire-audio wireplumber bluez systemd gtk4 libadwaita glib2 hicolor-icon-theme glibc libgcc)
 options=(!lto !debug)
 source=("$pkgbase-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('d7c6938c6c80f5fca64b382b0605cb2f506e19d5ece70af573af45f7c0094744')
+sha256sums=('43fd7e1ce6450f1acd8ef4228f71e7bc6ab84789fef3e719e2b86de3db9a8e65')
 
 prepare() {
   cd "$pkgbase-$pkgver"
