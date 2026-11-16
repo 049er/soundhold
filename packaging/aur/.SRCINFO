@@ -1,6 +1,6 @@
 pkgbase = soundhold
 	pkgdesc = Head tracked spatial sound for Bluetooth headphones
-	pkgver = 0.1.0
+	pkgver = 0.1.1
 	pkgrel = 1
 	url = https://github.com/049er/soundhold
 	arch = x86_64
@@ -21,8 +21,8 @@ pkgbase = soundhold
 	makedepends = libgcc
 	options = !lto
 	options = !debug
-	source = soundhold-0.1.0.tar.gz::https://github.com/049er/soundhold/archive/refs/tags/v0.1.0.tar.gz
-	sha256sums = d7c6938c6c80f5fca64b382b0605cb2f506e19d5ece70af573af45f7c0094744
+	source = soundhold-0.1.1.tar.gz::https://github.com/049er/soundhold/archive/refs/tags/v0.1.1.tar.gz
+	sha256sums = 43fd7e1ce6450f1acd8ef4228f71e7bc6ab84789fef3e719e2b86de3db9a8e65
 
 pkgname = soundhold
 	install = soundhold.install
@@ -38,7 +38,7 @@ pkgname = soundhold
 
 pkgname = soundhold-window
 	pkgdesc = Window for Soundhold
-	depends = soundhold=0.1.0
+	depends = soundhold=0.1.1
 	depends = gtk4
 	depends = libadwaita
 	depends = glib2
