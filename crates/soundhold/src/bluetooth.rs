@@ -62,6 +62,12 @@ pub fn connect_tracker(address: &str) {
     bluetoothctl(&["connect", address, TRACKER_SERVICE]);
 }
 
+/// Reconnects every service, so the headphones offer the codecs that PipeWire has loaded since.
+pub fn reconnect(address: &str) {
+    bluetoothctl(&["disconnect", address]);
+    bluetoothctl(&["connect", address]);
+}
+
 /// Reconnects only the head sensor service. The audio connection stays up.
 pub fn reconnect_tracker(address: &str) {
     bluetoothctl(&["disconnect", address, TRACKER_SERVICE]);

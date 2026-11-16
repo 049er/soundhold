@@ -1,5 +1,9 @@
 use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
+use std::collections::BTreeSet;
+use std::fs;
+use std::os::unix::fs::MetadataExt;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -7,6 +11,8 @@ use std::time::{Duration, Instant};
 const AUTOSWITCH: &str = "bluetooth.autoswitch-to-headset-profile";
 const MUSIC_PROFILE: &str = "a2dp-sink";
 const OUTPUT_TIMEOUT: Duration = Duration::from_secs(5);
+const SESSION_MANAGER: &str = "wireplumber";
+const CODEC_PLUGIN_PREFIX: &str = "libspa-codec-bluez5-";
 
 fn wpctl(args: &[&str]) -> Result<String> {
     let output = Command::new("wpctl").args(args).output().context("could not run wpctl")?;
@@ -61,6 +67,49 @@ fn output_of(objects: &[Value], card: u64, codec: Option<&str>) -> Option<String
         let matches = props["device.id"] == card && sink && codec.is_none_or(|c| node_codec == c);
         matches.then(|| props["node.name"].as_str().map(str::to_string)).flatten()
     })
+}
+
+fn is_codec_plugin(path: &Path) -> bool {
+    path.file_name().and_then(|name| name.to_str()).is_some_and(|name| name.starts_with(CODEC_PLUGIN_PREFIX))
+}
+
+/// The Bluetooth codec plugins listed in the `/proc/<pid>/maps` text of a process.
+fn loaded_codec_plugins(maps: &str) -> BTreeSet<PathBuf> {
+    maps.lines()
+        .filter_map(|line| line.find('/').map(|start| PathBuf::from(line[start..].trim_end_matches(" (deleted)"))))
+        .filter(|path| is_codec_plugin(path))
+        .collect()
+}
+
+fn session_manager_id() -> Option<u32> {
+    let user = unsafe { libc::getuid() };
+    fs::read_dir("/proc").ok()?.flatten().find_map(|entry| {
+        let id = entry.file_name().to_str()?.parse().ok()?;
+        let owned = entry.metadata().ok()?.uid() == user;
+        let name = fs::read_to_string(entry.path().join("comm")).ok()?;
+        (owned && name.trim_end() == SESSION_MANAGER).then_some(id)
+    })
+}
+
+/// True when a Bluetooth codec plugin on disk is not loaded in WirePlumber, as after a package added one while it ran.
+pub fn codecs_pending() -> bool {
+    let Some(maps) = session_manager_id().and_then(|id| fs::read_to_string(format!("/proc/{id}/maps")).ok()) else {
+        return false;
+    };
+    let loaded = loaded_codec_plugins(&maps);
+    let Some(entries) = loaded.first().and_then(|path| fs::read_dir(path.parent()?).ok()) else {
+        return false;
+    };
+    entries.flatten().map(|entry| entry.path()).any(|path| is_codec_plugin(&path) && !loaded.contains(&path))
+}
+
+/// WirePlumber loads the Bluetooth codec plugins. The main PipeWire process and the sound filter keep running.
+pub fn restart_session_manager() -> Result<()> {
+    let status = Command::new("systemctl").args(["--user", "restart", SESSION_MANAGER]).status().context("could not run systemctl")?;
+    if !status.success() {
+        return Err(anyhow!("could not restart WirePlumber"));
+    }
+    Ok(())
 }
 
 fn wait_for_output(card: u64, codec: Option<&str>) -> Result<String> {
@@ -187,6 +236,20 @@ mod tests {
         for (codec, expected) in cases {
             assert_eq!(output_of(&objects, 5, codec), expected, "{codec:?}");
         }
+    }
+
+    #[test]
+    fn loaded_codec_plugins_lists_only_codec_files() {
+        let maps = "\
+7f00-7f01 r--p 00000000 103:02 11 /usr/lib/spa-0.2/bluez5/libspa-codec-bluez5-sbc.so
+7f01-7f02 r-xp 00001000 103:02 11 /usr/lib/spa-0.2/bluez5/libspa-codec-bluez5-sbc.so
+7f02-7f03 r--p 00000000 103:02 12 /usr/lib/spa-0.2/bluez5/libspa-codec-bluez5-ldac.so (deleted)
+7f03-7f04 r--p 00000000 103:02 13 /usr/lib/spa-0.2/bluez5/libspa-bluez5.so
+7f04-7f05 rw-p 00000000 00:00 0 [heap]
+7f05-7f06 rw-p 00000000 00:00 0
+";
+        let expected = ["/usr/lib/spa-0.2/bluez5/libspa-codec-bluez5-ldac.so", "/usr/lib/spa-0.2/bluez5/libspa-codec-bluez5-sbc.so"].map(PathBuf::from);
+        assert_eq!(loaded_codec_plugins(maps), BTreeSet::from(expected));
     }
 
     #[test]

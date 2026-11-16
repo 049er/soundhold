@@ -1,7 +1,7 @@
 use crate::bluetooth::Scan;
 use crate::engine::Engine;
 use crate::settings::{self, Settings, DEFAULT_LEVEL, DEFAULT_WIDTH};
-use crate::{autostart, bluetooth, heads};
+use crate::{autostart, bluetooth, heads, session};
 use anyhow::{Context, Result};
 use ksni::blocking::TrayMethods;
 use std::path::Path;
@@ -19,6 +19,7 @@ const POLL: Duration = Duration::from_millis(20);
 const SEARCH_INTERVAL: Duration = Duration::from_secs(3);
 const SAVE_INTERVAL: Duration = Duration::from_secs(1);
 const MISSES_BEFORE_GONE: u32 = 2;
+const RESTART_PAUSE: Duration = Duration::from_secs(2);
 const WINDOW_PROGRAM: &str = "soundhold-window";
 const INSTALLED_TRAY_ICON: &str = "/usr/share/icons/hicolor/symbolic/apps/soundhold-symbolic.svg";
 const DEVELOPMENT_ICON_FOLDER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../data/icons/hicolor/symbolic/apps");
@@ -30,6 +31,7 @@ enum Command {
     SetHead(String),
     Recentre,
     SetCodec(String),
+    RestartSound,
     Reset,
     Quit,
 }
@@ -49,6 +51,7 @@ struct Status {
     head: String,
     heads: Vec<String>,
     device: String,
+    codecs_pending: bool,
 }
 
 #[derive(Clone)]
@@ -79,9 +82,9 @@ struct Service(Controls);
 #[zbus::interface(name = "io.github.soundhold.Daemon")]
 impl Service {
     #[allow(clippy::type_complexity)]
-    fn status(&self) -> (String, f64, f64, bool, bool, String, Vec<String>, String, f64, f64, String, Vec<String>, String) {
+    fn status(&self) -> (String, f64, f64, bool, bool, String, Vec<String>, String, f64, f64, String, Vec<String>, String, bool) {
         let s = self.0.status.lock().unwrap().clone();
-        (s.state, s.turn, s.height, s.spatial, s.autostart, s.codec, s.codecs, s.error, s.width, s.level, s.head, s.heads, s.device)
+        (s.state, s.turn, s.height, s.spatial, s.autostart, s.codec, s.codecs, s.error, s.width, s.level, s.head, s.heads, s.device, s.codecs_pending)
     }
 
     fn set_spatial(&self, enabled: bool) {
@@ -131,6 +134,10 @@ impl Service {
         self.0.send(Command::SetCodec(codec));
     }
 
+    fn restart_sound(&self) {
+        self.0.send(Command::RestartSound);
+    }
+
     fn reset_defaults(&self) {
         {
             let mut status = self.0.status.lock().unwrap();
@@ -167,6 +174,7 @@ fn state_label(state: &str) -> &'static str {
         "no_sensor" => "No head sensor found",
         "unsupported" => "Headphones are not supported",
         "starting" => "Starting up",
+        "restarting" => "Restarting the sound",
         _ => "No headphones connected",
     }
 }
@@ -290,6 +298,15 @@ fn start_engine(address: &str, settings: &Settings, spatial: bool) -> Result<Eng
     Ok(engine)
 }
 
+fn restart_sound(address: Option<&str>) -> Result<()> {
+    session::restart_session_manager()?;
+    thread::sleep(RESTART_PAUSE);
+    if let Some(address) = address {
+        bluetooth::reconnect(address);
+    }
+    Ok(())
+}
+
 fn spawn_autostart_worker(status: Arc<Mutex<Status>>) -> Sender<bool> {
     let (sender, receiver) = mpsc::channel::<bool>();
     thread::spawn(move || {
@@ -365,11 +382,13 @@ pub fn run() -> Result<()> {
     'main: while !crate::stop_requested() {
         let mut failure = None;
         let mut received_command = false;
+        let mut wanted_restart = false;
         let (mut wanted_spatial, mut wanted_width, mut wanted_level, mut wanted_head) = (None, None, None, None);
         for command in received.try_iter() {
             received_command = true;
             match command {
                 Command::Quit => break 'main,
+                Command::RestartSound => wanted_restart = true,
                 Command::Recentre => {
                     if let Some(running) = engine.as_mut() {
                         running.recentre();
@@ -439,11 +458,22 @@ pub fn run() -> Result<()> {
         }
 
         let address = headphones.address.lock().unwrap().clone();
+        if wanted_restart {
+            engine = None;
+            status.lock().unwrap().state = "restarting".into();
+            failure = restart_sound(address.as_deref()).err().or(failure);
+            next_attempt = Instant::now() + RESTART_PAUSE;
+            status.lock().unwrap().codecs_pending = session::codecs_pending();
+        }
         match address {
             None => engine = None,
             Some(address) if engine.is_none() && Instant::now() >= next_attempt => {
                 next_attempt = Instant::now() + SEARCH_INTERVAL;
-                status.lock().unwrap().state = "starting".into();
+                {
+                    let mut published = status.lock().unwrap();
+                    published.state = "starting".into();
+                    published.codecs_pending = session::codecs_pending();
+                }
                 match start_engine(&address, &settings, spatial) {
                     Ok(started) => {
                         status.lock().unwrap().error.clear();

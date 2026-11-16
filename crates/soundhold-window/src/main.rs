@@ -23,7 +23,7 @@ const SLIDER_TOLERANCE: f64 = 0.5;
 const HEAD_LABEL_LENGTH: usize = 18;
 const ADD_HEAD: &str = "add-your-own";
 
-type Reply = (String, f64, f64, bool, bool, String, Vec<String>, String, f64, f64, String, Vec<String>, String);
+type Reply = (String, f64, f64, bool, bool, String, Vec<String>, String, f64, f64, String, Vec<String>, String, bool);
 
 #[derive(Clone, Default)]
 struct Snapshot {
@@ -40,11 +40,12 @@ struct Snapshot {
     head: String,
     heads: Vec<String>,
     device: String,
+    codecs_pending: bool,
 }
 
 impl From<Reply> for Snapshot {
     fn from(r: Reply) -> Self {
-        Self { state: r.0, turn: r.1, height: r.2, spatial: r.3, autostart: r.4, codec: r.5, codecs: r.6, error: r.7, width: r.8, level: r.9, head: r.10, heads: r.11, device: r.12 }
+        Self { state: r.0, turn: r.1, height: r.2, spatial: r.3, autostart: r.4, codec: r.5, codecs: r.6, error: r.7, width: r.8, level: r.9, head: r.10, heads: r.11, device: r.12, codecs_pending: r.13 }
     }
 }
 
@@ -167,6 +168,7 @@ struct Ui {
     enable: Toggle,
     start: gtk::Button,
     report_headphones: gtk::Button,
+    restart_sound: gtk::Box,
 }
 
 impl Ui {
@@ -212,7 +214,7 @@ impl Ui {
         let running = reply.is_some();
         let snapshot = reply.map(Snapshot::from).unwrap_or_default();
         self.latest.replace(snapshot.clone());
-        let Snapshot { state, turn, height, spatial, autostart, codec, codecs, error, width, level, head, heads, .. } = snapshot;
+        let Snapshot { state, turn, height, spatial, autostart, codec, codecs, error, width, level, head, heads, codecs_pending, .. } = snapshot;
         let (title, detail) = match (running, state.as_str()) {
             (false, _) => ("Stopped", "The app is disabled"),
             (_, "spatial") => ("Head tracking is on", "Sound stays in place as you turn"),
@@ -223,6 +225,7 @@ impl Ui {
             (_, "no_sensor") => ("No head sensor found", "Sound plays but will not follow your head. These headphones may not be supported yet"),
             (_, "unsupported") => ("Headphones not supported", "The connected headphones have no head sensor Soundhold can use"),
             (_, "starting") => ("Starting", "Setting up the sound"),
+            (_, "restarting") => ("Restarting the sound", "The headphones reconnect in a few seconds"),
             _ => ("Waiting for headphones", "Connect your headphones"),
         };
         self.state.set_label(title);
@@ -231,6 +234,7 @@ impl Ui {
         self.error.set_visible(!error.is_empty());
         let tracking = state == "spatial";
         self.report_headphones.set_visible(matches!(state.as_str(), "no_sensor" | "no_data" | "unsupported"));
+        self.restart_sound.set_visible(running && codecs_pending && state != "restarting");
         self.position.set_label(&if tracking { format!("Turn {}   Height {}", degrees(turn), degrees(height)) } else { "Not tracking".to_string() });
         self.centre.set_sensitive(tracking);
         for control in [
@@ -479,7 +483,19 @@ fn status_card(ui: &Ui) -> gtk::Box {
     status.append(&ui.centre);
     status.append(&ui.position);
     status.append(&ui.report_headphones);
+    status.append(&ui.restart_sound);
     status
+}
+
+fn restart_sound_note(button: &gtk::Button) -> gtk::Box {
+    let note = label("New Bluetooth codecs are installed but not loaded yet. Restart the sound to use them. Sound stops for a few seconds.", "m3-body-medium");
+    note.set_wrap(true);
+    note.set_max_width_chars(33);
+    let section = gtk::Box::new(gtk::Orientation::Vertical, 8);
+    section.append(&note);
+    section.append(button);
+    section.set_visible(false);
+    section
 }
 
 fn advanced_section(ui: &Ui, reset: &gtk::Button) -> gtk::Box {
@@ -559,6 +575,9 @@ fn build_window(app: &adw::Application, bus: gio::DBusConnection) {
     report_headphones.add_css_class("m3-outlined-button");
     report_headphones.set_visible(false);
 
+    let restart_sound = gtk::Button::with_label("Restart sound");
+    restart_sound.add_css_class("m3-outlined-button");
+
     let header_text = label("Advanced", "m3-body-large");
     header_text.set_hexpand(true);
     let chevron = gtk::Image::from_icon_name("go-down-symbolic");
@@ -598,6 +617,7 @@ fn build_window(app: &adw::Application, bus: gio::DBusConnection) {
         enable: Toggle::new(),
         start: start.clone(),
         report_headphones: report_headphones.clone(),
+        restart_sound: restart_sound_note(&restart_sound),
     });
     ui.error.set_wrap(true);
     ui.error.set_visible(false);
@@ -668,6 +688,8 @@ fn build_window(app: &adw::Application, bus: gio::DBusConnection) {
     });
     let target = ui.clone();
     centre.connect_clicked(move |_| target.call("Recentre", None));
+    let target = ui.clone();
+    restart_sound.connect_clicked(move |_| target.call("RestartSound", None));
     let target = ui.clone();
     start.connect_clicked(move |_| target.enable.control.set_active(true));
     let target = ui.clone();

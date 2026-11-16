@@ -35,6 +35,10 @@ cd packaging/aur
 makepkg -si
 ```
 
+### After installing
+
+The packages can add Bluetooth codecs, such as AAC on Ubuntu, that the running sound service has not loaded. Until then the headphones use the basic SBC codec. The window shows a Restart sound button for this. Logging out and back in also works.
+
 ### Remove
 
 On Ubuntu:
